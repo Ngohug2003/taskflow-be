@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+/.venv/
+/.ruff_cache/
+/.idea/
+/.run/
+/Volume/
+!/.github/
+.env
+.env.*
+!.env.example
+zlogs/
+app/zlogs/
+*.log
