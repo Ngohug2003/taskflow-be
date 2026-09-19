@@ -83,6 +83,8 @@ Trong mô hình SaaS, mọi Project và Task bắt buộc phải thuộc về m�
   * `id`: BigInteger, Primary Key, Auto-increment
   * `name`: String(100), Not Null
   * `description`: Text, Nullable
+  * `selected_color`: String(50), Nullable, Default = '#2563EB' (Màu nhận diện workspace)
+  * `privacy`: Enum(`PUBLIC`, `PRIVATE`) hoặc String(20), Default = 'PRIVATE' (Chế độ riêng tư)
   * `owner_id`: BigInteger, Foreign Key -> `users.id`, Not Null, Indexed
   * `created_at`: DateTime(timezone=True), Server Default = NOW()
   * `updated_at`: DateTime(timezone=True), Server Default = NOW()
@@ -98,7 +100,7 @@ Trong mô hình SaaS, mọi Project và Task bắt buộc phải thuộc về m�
 | Phương thức | Endpoint | Chức năng | Phân quyền |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/workspaces` | Lấy danh sách các Workspace mà user hiện tại đang tham gia | Member |
-| `POST` | `/api/v1/workspaces` | Tạo Workspace mới (User tạo tự động gán là `OWNER` trong `workspace_members`) | Authenticated User |
+| `POST` | `/api/v1/workspaces` | Tạo Workspace mới (hỗ trợ `selectedColor`, `privacy`, danh sách `inviteEmails` mời thành viên ngay khi tạo. User tạo tự động gán là `OWNER` trong `workspace_members`) | Authenticated User |
 | `GET` | `/api/v1/workspaces/{id}` | Lấy chi tiết Workspace (kèm tổng quan số dự án, thành viên) | Member của WS |
 | `PATCH` | `/api/v1/workspaces/{id}` | Sửa tên, mô tả Workspace | `OWNER`, `ADMIN` |
 | `DELETE` | `/api/v1/workspaces/{id}` | Xóa vĩnh viễn Workspace | Chỉ `OWNER` |

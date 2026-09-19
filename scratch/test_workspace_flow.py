@@ -38,21 +38,48 @@ def run_tests():
 
     log("✓ Cả 2 tài khoản đã sẵn sàng", "PASS")
 
-    # 2. Test POST /workspaces (Tạo mới)
-    log("2. Test POST /api/v1/workspaces...")
+    # 2. Test POST /workspaces (Tạo mới với selectedColor và privacy)
+    log("2. Test POST /api/v1/workspaces (selectedColor, privacy)...")
     owner_headers = {"Authorization": f"Bearer {owner_token}"}
     r = client.post(
         f"{BASE_URL}/workspaces",
         headers=owner_headers,
-        json={"name": "TaskFlow Core Team", "description": "Không gian làm việc chính thức"},
+        json={
+            "name": "TaskFlow Core Team",
+            "description": "Không gian làm việc chính thức",
+            "selectedColor": "#10B981",
+            "privacy": "PUBLIC",
+        },
     )
     assert r.status_code == 201, f"Create workspace failed: {r.text}"
     ws_data = r.json()["data"]
     workspace_id = ws_data["id"]
     assert ws_data["name"] == "TaskFlow Core Team"
     assert ws_data["current_user_role"] == "OWNER"
+    assert ws_data["selectedColor"] == "#10B981"
+    assert ws_data["selected_color"] == "#10B981"
+    assert ws_data["privacy"] == "PUBLIC"
     assert ws_data["members_count"] == 1
-    log(f"✓ Tạo workspace thành công (ID: {workspace_id})", "PASS")
+    log(f"✓ Tạo workspace thành công (ID: {workspace_id}, Color: {ws_data['selectedColor']}, Privacy: {ws_data['privacy']})", "PASS")
+
+    # 2b. Test POST /workspaces với inviteEmails ngay khi tạo
+    log("2b. Test POST /api/v1/workspaces với inviteEmails...")
+    r_inv = client.post(
+        f"{BASE_URL}/workspaces",
+        headers=owner_headers,
+        json={
+            "name": "Workspace with Invited Members",
+            "selectedColor": "#EF4444",
+            "privacy": "PRIVATE",
+            "inviteEmails": [member_email],
+        },
+    )
+    assert r_inv.status_code == 201, f"Create with invite failed: {r_inv.text}"
+    ws_inv_data = r_inv.json()["data"]
+    assert ws_inv_data["members_count"] == 2
+    # Clean up workspace phụ
+    client.delete(f"{BASE_URL}/workspaces/{ws_inv_data['id']}", headers=owner_headers)
+    log("✓ Tạo workspace kèm danh sách inviteEmails thành công (members_count: 2)", "PASS")
 
     # 3. Test GET /workspaces (Danh sách)
     log("3. Test GET /api/v1/workspaces...")

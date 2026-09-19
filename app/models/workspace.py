@@ -14,12 +14,23 @@ class WorkspaceRole(str, enum.Enum):
     MEMBER = "MEMBER"
 
 
+class WorkspacePrivacy(str, enum.Enum):
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
+
+
 class Workspace(BaseDbModel):
     __tablename__ = "workspaces"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    selected_color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="#2563EB")
+    privacy: Mapped[WorkspacePrivacy] = mapped_column(
+        Enum(WorkspacePrivacy, native_enum=False, length=20),
+        default=WorkspacePrivacy.PRIVATE,
+        nullable=False,
+    )
     owner_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),

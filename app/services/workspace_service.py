@@ -39,14 +39,20 @@ class WorkspaceService:
     async def create_workspace(
         cls, db: AsyncSession, current_user: User, payload: CreateWorkspaceRequest
     ) -> WorkspaceResponse:
-        """Tạo workspace mới và tự động gán user tạo thành OWNER (BR-WS-001)"""
+        """Tạo workspace mới và tự động gán user tạo thành OWNER (BR-WS-001) cùng danh sách email mời"""
         workspace_repo = WorkspaceRepository(db)
         member_repo = WorkspaceMemberRepository(db)
+        user_repo = UserRepository(db)
 
         # 1. Tạo Workspace
+        selected_color = payload.selected_color or "#2563EB"
+        privacy = payload.privacy or WorkspacePrivacy.PRIVATE
+
         workspace = Workspace(
             name=payload.name.strip(),
             description=payload.description.strip() if payload.description else None,
+            selected_color=selected_color,
+            privacy=privacy,
             owner_id=current_user.id,
         )
         await workspace_repo.create(workspace)
@@ -59,15 +65,41 @@ class WorkspaceService:
         )
         await member_repo.create(owner_member)
 
+        # 3. Tự động mời danh sách email nếu có
+        invited_count = 0
+        if payload.invite_emails:
+            clean_emails = {
+                e.lower().strip()
+                for e in payload.invite_emails
+                if e and e.lower().strip() != (current_user.email or "").lower()
+            }
+            for email in clean_emails:
+                target_user = await user_repo.get_by_email(email)
+                if target_user and target_user.id != current_user.id:
+                    existing = await member_repo.get_member(workspace.id, target_user.id)
+                    if not existing:
+                        invited_member = WorkspaceMember(
+                            workspace_id=workspace.id,
+                            user_id=target_user.id,
+                            role=WorkspaceRole.MEMBER,
+                        )
+                        await member_repo.create(invited_member)
+                        invited_count += 1
+
+        privacy_str = workspace.privacy.value if hasattr(workspace.privacy, "value") else str(workspace.privacy)
+
         return WorkspaceResponse(
             id=workspace.id,
             name=workspace.name,
             description=workspace.description,
+            selected_color=workspace.selected_color,
+            selectedColor=workspace.selected_color,
+            privacy=privacy_str,
             owner_id=workspace.owner_id,
             created_at=workspace.created_at,
             updated_at=workspace.updated_at,
             current_user_role=WorkspaceRole.OWNER,
-            members_count=1,
+            members_count=1 + invited_count,
         )
 
     @classmethod
@@ -81,11 +113,15 @@ class WorkspaceService:
         response_list: List[WorkspaceResponse] = []
         for ws, membership in items:
             count = await workspace_repo.count_members(ws.id)
+            privacy_str = ws.privacy.value if hasattr(ws.privacy, "value") else str(ws.privacy)
             response_list.append(
                 WorkspaceResponse(
                     id=ws.id,
                     name=ws.name,
                     description=ws.description,
+                    selected_color=ws.selected_color or "#2563EB",
+                    selectedColor=ws.selected_color or "#2563EB",
+                    privacy=privacy_str,
                     owner_id=ws.owner_id,
                     created_at=ws.created_at,
                     updated_at=ws.updated_at,
@@ -113,10 +149,15 @@ class WorkspaceService:
             raise CustomException(404, "Không tìm thấy không gian làm việc.")
 
         members_dto = [cls._map_member_response(m) for m in ws.members]
+        privacy_str = ws.privacy.value if hasattr(ws.privacy, "value") else str(ws.privacy)
+
         return WorkspaceDetailResponse(
             id=ws.id,
             name=ws.name,
             description=ws.description,
+            selected_color=ws.selected_color or "#2563EB",
+            selectedColor=ws.selected_color or "#2563EB",
+            privacy=privacy_str,
             owner_id=ws.owner_id,
             created_at=ws.created_at,
             updated_at=ws.updated_at,
@@ -148,14 +189,22 @@ class WorkspaceService:
             ws.name = payload.name.strip()
         if payload.description is not None:
             ws.description = payload.description.strip() if payload.description else None
+        if payload.selected_color is not None:
+            ws.selected_color = payload.selected_color.strip()
+        if payload.privacy is not None:
+            ws.privacy = payload.privacy
 
         await workspace_repo.update(ws)
         count = await workspace_repo.count_members(ws.id)
+        privacy_str = ws.privacy.value if hasattr(ws.privacy, "value") else str(ws.privacy)
 
         return WorkspaceResponse(
             id=ws.id,
             name=ws.name,
             description=ws.description,
+            selected_color=ws.selected_color or "#2563EB",
+            selectedColor=ws.selected_color or "#2563EB",
+            privacy=privacy_str,
             owner_id=ws.owner_id,
             created_at=ws.created_at,
             updated_at=ws.updated_at,
